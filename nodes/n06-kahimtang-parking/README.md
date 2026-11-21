@@ -23,6 +23,6 @@ Log the actual result in [TESTING.md](../../TESTING.md). Store private Wi‑Fi a
 
 ## Status
 
-- **Wokwi simulation:** in progress
+-- **Wokwi simulation:** passed (Serial dry run: T04, T05, T10)
 - **Physical device, class broker, dashboard:** pending
 - **Owner and bay labels:** pending team assignment
