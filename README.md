@@ -91,3 +91,4 @@ SENTRA is the work of BCA188 Block A’s 19 members. Each student owns or co-own
 - MENDOZA, Emmery Kelsey V.
 - VILIGANILAO, Caleb L.
 - YBAÑEZ, ALLISON JELUCK S.
+- DIPANTAR, Jhanaloden M.
