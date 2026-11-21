@@ -1,4 +1,4 @@
-{
+﻿{
   "version": 1,
   "author": "HAYAG Node 2",
   "editor": "wokwi",
@@ -11,19 +11,32 @@
       "attrs": {}
     },
     {
-      "type": "chip-tsl2561",
-      "id": "tsl",
+      "type": "chip-bh1750-window",
+      "id": "window",
       "top": 20,
       "left": 300,
       "attrs": {
-        "lightLevel": "500"
+        "lux": "500"
+      }
+    },
+    {
+      "type": "chip-bh1750-desk",
+      "id": "desk",
+      "top": 170,
+      "left": 300,
+      "attrs": {
+        "lux": "250"
       }
     }
   ],
   "connections": [
-    ["esp:3V3", "tsl:VCC", "red"],
-    ["esp:GND.1", "tsl:GND", "black"],
-    ["esp:22", "tsl:SCL", "green"],
-    ["esp:21", "tsl:SDA", "blue"]
+    ["esp:3V3", "window:VCC", "red"],
+    ["esp:GND.1", "window:GND", "black"],
+    ["esp:22", "window:SCL", "green"],
+    ["esp:21", "window:SDA", "blue"],
+    ["esp:3V3", "desk:VCC", "red"],
+    ["esp:GND.1", "desk:GND", "black"],
+    ["esp:22", "desk:SCL", "green"],
+    ["esp:21", "desk:SDA", "blue"]
   ]
 }
