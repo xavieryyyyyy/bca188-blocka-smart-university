@@ -1,6 +1,6 @@
 # SENTRA testing
 
-Start with one node in Serial Monitor. Check the same node in MQTT Explorer before checking the dashboard. Add the actual result and evidence after running each test.
+Each subsystem team can test its stations in parallel. For each station, start in Serial Monitor, check the approved messages in MQTT Explorer, then verify the result on the dashboard during integration. Add the actual result and evidence after running each test.
 
 | ID | Test | What to do | Expected result | Actual result |
 | --- | --- | --- | --- | --- |

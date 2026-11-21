@@ -13,7 +13,7 @@ If you are a teammate or helping one with an AI tool, start with the [project ov
 | **KAHIMTANG** | [Two-bay parking station](nodes/n06-kahimtang-parking/) | Test each bay empty and occupied, then test both sensors together. Check that a missing or stale reading becomes **Unknown**. |
 | **Yestin Paraguya, project lead** | [Dashboard](dashboard/) | Own the dashboard code and coordinate how verified readings, node status, and ANDAM tickets appear. Subsystem teams bring their data and test results. |
 
-Agree on shared interfaces with the project lead and the people working in [backend/](backend/) before changing code another team depends on. Subsystem teams can bench-test and verify their approved MQTT messages while dashboard work is in progress.
+HAYAG, ANDAM, and KAHIMTANG build and test in parallel while the lead works on the dashboard. Each team [fills in its station owners and locations](DATA_REGISTRY.md#what-each-subsystem-team-fills-in) and hands off verified MQTT messages as its stations are ready. Agree on shared interfaces with the project lead and the people working in [backend/](backend/) before changing code another team depends on.
 
 ## Agree on the data before integration
 

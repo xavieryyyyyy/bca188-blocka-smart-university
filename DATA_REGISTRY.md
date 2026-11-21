@@ -2,6 +2,14 @@
 
 **Draft for team and instructor review.** Confirm the six node IDs, actual room and bay labels, and owner or co-owner for every node before publishing to the class broker. Check for duplicate measurements within Block A and with the other block.
 
+## What each subsystem team fills in
+
+1. Assign an owner or co-owner to each ESP32 in your group. Enter their names in the **Owner** column of every row for that board.
+2. Replace **Location** placeholders with the actual campus labels agreed for the field test. HAYAG records its monitored classroom, ANDAM records both classrooms and the technician desk, and KAHIMTANG records each bay separately, even though both bays share one ESP32.
+3. Open a pull request with your group’s rows. Confirm that the location, measurement, and proposed topic describe the same station. Get the registry entries confirmed before publishing to the class broker.
+
+HAYAG, ANDAM, and KAHIMTANG can fill in their rows and start bench-testing in parallel. Share confirmed topics and sample messages with the project lead as each station is ready for dashboard integration.
+
 | Node | Owner | Input or source | Measurement | Location | Purpose | Proposed MQTT topic | Unit | Interval |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | [n01](nodes/n01-hayag-climate/) | Pending | SHT30-D | Air temperature | HAYAG classroom, actual room ID pending | Show classroom temperature. | `bca188/blocka/hayag/n01/temperature` | C | On change and at least every 60 s while valid |
@@ -12,8 +20,8 @@
 | [n03](nodes/n03-andam-classroom-1/) | Pending | Help button | Classroom 1 help requests | First ANDAM classroom, actual room ID pending | Create a ticket when the room’s count increases. | `bca188/blocka/andam/n03/help-request-count` | count | On change and at least every 60 s while valid |
 | [n04](nodes/n04-andam-classroom-2/) | Pending | Help button | Classroom 2 help requests | Second ANDAM classroom, actual room ID pending | Create a ticket when the room’s count increases. | `bca188/blocka/andam/n04/help-request-count` | count | On change and at least every 60 s while valid |
 | [n05](nodes/n05-andam-technician-desk/) | Pending | Buzzer receiver | Audible alerts played | Technician desk, actual location pending | Check that the desk receiver responded to new saved tickets. | `bca188/blocka/andam/n05/alert-count` | count | On change and at least every 60 s while valid |
-| [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 1 occupancy state | Two campus parking bays, actual bay IDs pending | Show whether Bay 1 is available. | `bca188/blocka/kahimtang/n06/bay-1-occupied` | bool | On change and at least every 60 s while valid |
-| [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 2 occupancy state | Two campus parking bays, actual bay IDs pending | Show whether Bay 2 is available. | `bca188/blocka/kahimtang/n06/bay-2-occupied` | bool | On change and at least every 60 s while valid |
+| [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 1 occupancy state | Bay 1, actual campus label pending | Show whether Bay 1 is available. | `bca188/blocka/kahimtang/n06/bay-1-occupied` | bool | On change and at least every 60 s while valid |
+| [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 2 occupancy state | Bay 2, actual campus label pending | Show whether Bay 2 is available. | `bca188/blocka/kahimtang/n06/bay-2-occupied` | bool | On change and at least every 60 s while valid |
 
 ## MQTT message rules
 

@@ -60,7 +60,7 @@ New contributors can start with the [team workflow](CONTRIBUTING.md) and find th
 
 ## Field test
 
-Start with one ANDAM classroom station. Check that one button press creates one ticket for the correct room and causes one beep at the technician desk. Then check the HAYAG readings in the classroom and test each KAHIMTANG bay with and without a vehicle. During the network test, verify that each offline or stale reading is labeled clearly and that updates resume after reconnection.
+HAYAG, ANDAM, and KAHIMTANG build and test their stations in parallel. HAYAG checks its readings in the classroom. ANDAM checks that one button press creates one ticket for the correct room and causes one beep at the technician desk. KAHIMTANG tests each bay with and without a vehicle. Integrate each station with the dashboard as its messages are verified, and check that updates resume after reconnection.
 
 Record what happened in the [test log](TESTING.md). Use the [data registry](DATA_REGISTRY.md) for measurements and node owners, the [security checklist](SECURITY.md) for access and privacy controls, and the [slides folder](slides/) for the final presentation PDF.
 
