@@ -1,0 +1,15 @@
+{
+  "name": "TSL2561 Light Sensor",
+  "author": "HAYAG Node 2",
+  "pins": ["VCC", "GND", "SCL", "SDA", "INT"],
+  "controls": [
+    {
+      "id": "lightLevel",
+      "label": "Simulated Light Level",
+      "type": "range",
+      "min": 0,
+      "max": 1000,
+      "step": 10
+    }
+  ]
+}

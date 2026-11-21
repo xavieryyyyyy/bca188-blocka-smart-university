@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "author": "HAYAG Node 2",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "chip-tsl2561",
+      "id": "tsl",
+      "top": 20,
+      "left": 300,
+      "attrs": {
+        "lightLevel": "500"
+      }
+    }
+  ],
+  "connections": [
+    ["esp:3V3", "tsl:VCC", "red"],
+    ["esp:GND.1", "tsl:GND", "black"],
+    ["esp:22", "tsl:SCL", "green"],
+    ["esp:21", "tsl:SDA", "blue"]
+  ]
+}

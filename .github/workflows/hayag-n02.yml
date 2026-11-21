@@ -1,0 +1,42 @@
+﻿name: HAYAG Node 2 CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "nodes/n02-hayag-lighting/**"
+      - ".github/workflows/hayag-n02.yml"
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - "nodes/n02-hayag-lighting/**"
+      - ".github/workflows/hayag-n02.yml"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: nodes/n02-hayag-lighting
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO
+        run: python -m pip install platformio
+
+      - name: Prepare build configuration
+        run: cp include/secrets.h.example include/secrets.h
+
+      - name: Run automated lighting tests
+        run: pio test -e native
+
+      - name: Build ESP32 firmware
+        run: pio run -e esp32dev
