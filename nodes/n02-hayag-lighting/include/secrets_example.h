@@ -1,0 +1,6 @@
+#pragma once
+#define WIFI_SSID  "YOUR_WIFI"
+#define WIFI_PASS  "YOUR_PASSWORD"
+#define MQTT_HOST  "BROKER_IP"
+#define MQTT_USER  "YOUR_USER"
+#define MQTT_PASS  "YOUR_MQTT_PASSWORD"
