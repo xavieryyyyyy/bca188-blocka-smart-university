@@ -2,3 +2,10 @@ secrets.h
 .env
 .env.*
 !.env.example
+
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+backend/data/
