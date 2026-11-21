@@ -1,15 +1,20 @@
-﻿{
-  "name": "BH1750 Desk Sensor",
-  "author": "HAYAG Node 2",
-  "pins": ["VCC", "GND", "SCL", "SDA"],
-  "controls": [
-    {
-      "id": "lux",
-      "label": "Desk Light (lux)",
-      "type": "range",
-      "min": 0,
-      "max": 20000,
-      "step": 10
-    }
-  ]
+{
+    "name":  "BH1750 Desk Sensor",
+    "author":  "HAYAG Node 2",
+    "pins":  [
+                 "VCC",
+                 "GND",
+                 "SCL",
+                 "SDA"
+             ],
+    "controls":  [
+                     {
+                         "id":  "lux",
+                         "label":  "Desk Light (lux)",
+                         "type":  "range",
+                         "min":  0,
+                         "max":  20000,
+                         "step":  10
+                     }
+                 ]
 }
