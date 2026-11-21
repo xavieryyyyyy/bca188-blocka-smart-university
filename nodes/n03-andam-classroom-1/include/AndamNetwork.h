@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include "Config.h"
-class Network {
+class AndamNetwork {
 public:
  void begin(const char*s,const char*p){ssid=s;pass=p;started=true;WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.begin(s,p);last=millis();}
  void loop(){if(!started)return;if(WiFi.status()!=WL_CONNECTED&&millis()-last>=Config::WIFI_RETRY_MS){last=millis();WiFi.disconnect();WiFi.begin(ssid,pass);}

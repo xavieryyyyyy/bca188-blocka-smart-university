@@ -5,13 +5,13 @@
 #include "Config.h"
 #include "NodeConfig.h"
 #include "AndamSecurity.h"
-#include "Network.h"
+#include "AndamNetwork.h"
 #include "MqttBase.h"
 #include "RequestState.h"
 
 constexpr unsigned long RETRY_MS = 5000;
 constexpr unsigned long CONFIRMATION_MS = 1000;
-Network net;
+AndamNetwork net;
 AndamSecurity security;
 MqttBase mqtt;
 Preferences requests;
