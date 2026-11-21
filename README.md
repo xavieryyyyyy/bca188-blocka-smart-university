@@ -9,7 +9,7 @@ We’re building SENTRA for our BCA188 Block A project at MSU-IIT. In our first 
 ![FastAPI](https://img.shields.io/badge/FastAPI-171717?style=flat-square&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-171717?style=flat-square&logo=react&logoColor=white)
 
-[Subsystems](#what-sentra-does) · [Architecture](#how-data-reaches-the-dashboard) · [Node plan](#six-esp32-nodes) · [Contributing](CONTRIBUTING.md) · [Testing](TESTING.md) · [Team](#team-contributions)
+[Subsystems](#what-sentra-does) · [Architecture](#how-data-reaches-the-dashboard) · [Node plan](#six-esp32-nodes) · [Contributing](CONTRIBUTING.md) · [Team & AI Guide](AGENTS.md) · [Testing](TESTING.md) · [Team](#team-contributions)
 
 ## What SENTRA does
 
