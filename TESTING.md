@@ -25,4 +25,4 @@ Each subsystem team can test its stations in parallel. For each station, start i
 4. Temporarily stop the service and press RESOLVE. The classroom red LED should stay on. Restart the service and confirm the classroom and desk room indicators clear when the resolution is saved.
 5. Record the MQTTX observation, Serial Monitor messages and physical LED and buzzer results separately. Leave T03 pending until the physical run.
 
-Automated coverage exercises ticket retries and resolution in SQLite and tests buzzer timing and reconnect behavior with a host C++ compiler. A local MQTT run with simulated nodes passed the request, retry, reconnect and resolution sequence. T03 still needs the campus hardware run.
+Both N03 and N05 passed the PlatformIO ESP32 build with sample connection settings. Automated coverage exercises ticket retries and resolution in SQLite and tests buzzer timing and reconnect behavior with a host C++ compiler. A local MQTT run with simulated nodes passed the request, retry, reconnect and resolution sequence. T03 still needs the campus hardware run.
