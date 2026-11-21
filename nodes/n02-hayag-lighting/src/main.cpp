@@ -5,15 +5,15 @@
 
 #if SIM_SENSOR
   // ---- Simulation settings: PUBLIC test broker, never commit real secrets ----
-  #define NODE_ID      "n04"                        // placeholder, confirm with leader
-  #define CLIENT_ID    "sim-n04-CHANGEME"           // must be unique: add your name
+  #define NODE_ID      "n04"                      
+  #define CLIENT_ID    "sim-n04-CHANGEME"          
   #define TOPIC_BASE   "sim/bca188-CHANGEME/hayag/n04"
   #define WIFI_SSID    "Wokwi-GUEST"
   #define WIFI_PASS    ""
   #define MQTT_HOST    "broker.hivemq.com"
   #define MQTT_USER    NULL
   #define MQTT_PASS    NULL
-  #define WIFI_BEGIN() WiFi.begin(WIFI_SSID, WIFI_PASS, 6)   // Wokwi uses channel 6
+  #define WIFI_BEGIN() WiFi.begin(WIFI_SSID, WIFI_PASS, 6)   
   const uint8_t PIN_POT = 34;      // potentiometer = fake lux
   const uint8_t PIN_FAIL = 27;     // button held = fake "sensor disconnected"
 #else
