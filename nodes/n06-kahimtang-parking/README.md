@@ -16,7 +16,7 @@ Log the actual result in [TESTING.md](../../TESTING.md). Store private Wi‑Fi a
 
 ## Board and pin map
 
-- **Board:** ESP32 DevKit V1 (30-pin, DOIT), confirm against the label on the board
+- **Board:** ESP32-WROOM-32 development board (PlatformIO `esp32dev`), confirm against the label
 - **Bay 1:** TRIG GPIO 26, ECHO GPIO 27 through the 2.2 kΩ / 3.3 kΩ divider
 - **Bay 2:** TRIG GPIO 32, ECHO GPIO 33 through the 2.2 kΩ / 3.3 kΩ divider
 - **Status LED (simulation only):** GPIO 25 through a 220 Ω resistor
