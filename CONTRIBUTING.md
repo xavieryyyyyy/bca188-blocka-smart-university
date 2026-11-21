@@ -2,6 +2,8 @@
 
 Work from this Block A repository and use your own GitHub account. The team lead grants write access. Each student should own or co-own a node or dashboard feature and make commits that describe what they changed.
 
+Read [AGENTS.md](AGENTS.md) for subsystem ownership, coding practices, and the checks to complete before integration. If you use an AI assistant, share that file and the README for your assigned station.
+
 ## Make your first contribution
 
 Clone and open the repository.

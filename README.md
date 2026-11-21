@@ -56,7 +56,7 @@ git clone https://github.com/xavieryyyyyy/bca188-blocka-smart-university.git
 cd bca188-blocka-smart-university
 ```
 
-New contributors can start with the [team workflow](CONTRIBUTING.md) and find their ESP32 folder in the [station list](nodes/). Before the first MQTT test, assign a node owner and confirm its readings and topics in the [data registry](DATA_REGISTRY.md). Once the first sketch is ready, test it in Serial Monitor at 115200 baud, confirm its messages in MQTT Explorer, then check them on the dashboard. Use `secrets.h` for local ESP32 credentials and `.env` for local service settings.
+New contributors can start with the [team workflow](CONTRIBUTING.md) and find their ESP32 folder in the [station list](nodes/). The [team and AI instructions](AGENTS.md) explain what each station needs to finish before integration. Before the first MQTT test, assign a node owner and confirm its readings and topics in the [data registry](DATA_REGISTRY.md). Once the first sketch is ready, test it in Serial Monitor at 115200 baud, confirm its messages in MQTT Explorer, then check them on the dashboard. Use `secrets.h` for local ESP32 credentials and `.env` for local service settings.
 
 ## Field test
 
