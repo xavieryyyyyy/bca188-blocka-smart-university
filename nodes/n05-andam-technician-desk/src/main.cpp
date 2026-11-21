@@ -1,51 +1,144 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #include "secrets.h"
 #include "Config.h"
 #include "NodeConfig.h"
 #include "AndamSecurity.h"
 #include "AndamNetwork.h"
 #include "MqttBase.h"
-AndamNetwork net;AndamSecurity sec;MqttBase mqtt;
-bool r1=false,r2=false,muted=false,greenState=false,buzzState=false;
-uint32_t lastSeq=0;unsigned long snapAt=0,lastBeat=0,lastBlink=0,lastReminder=0,nextBeep=0;
-uint8_t beeps=0;bool muteLast=HIGH,muteStable=HIGH;unsigned long muteChanged=0;
-void beepQueue(uint8_t n){beeps=n;nextBeep=millis();buzzState=false;}
-void callback(char*,uint8_t*p,unsigned int n){
- JsonDocument d;if(deserializeJson(d,p,n))return;
- const char*node=d["node"]|"";const char*st=d["state"]|"";const char*rooms=d["rooms"]|"";const char*sig=d["sig"]|"";
- uint32_t s=d["seq"]|0U,t=d["ts"]|0U,now=net.epoch();
- if(strcmp(node,"n05")||strcmp(st,"open_tickets")||!s||s<=lastSeq||!t||!now)return;
- if((now>t?now-t:t-now)>Config::MAX_AGE_S)return;
- String c=String("n05|open_tickets|")+rooms+"|"+s+"|"+t;if(!sec.verify(c,String(sig)))return;
- bool nr1=String(rooms).indexOf("n03")>=0,nr2=String(rooms).indexOf("n04")>=0;
- bool appeared=(!r1&&nr1)||(!r2&&nr2);r1=nr1;r2=nr2;lastSeq=s;snapAt=millis();
- if(appeared){muted=false;beepQueue(3);}if(!r1&&!r2)muted=false;
+#include "DeskAlerts.h"
+
+constexpr uint32_t SNAPSHOT_TTL_MS = 10000;
+AndamNetwork net;
+AndamSecurity security;
+MqttBase mqtt;
+Preferences preferences;
+DeskAlerts alerts;
+uint8_t rooms = 0;
+bool haveSnapshot = false;
+bool initialized = false;
+uint32_t snapshotAt = 0;
+uint32_t lastReportAt = 0;
+uint32_t lastReportedCount = 0;
+bool reportNow = true;
+
+bool rememberTicket(uint32_t id) {
+    if (preferences.putUInt("last-ticket", id) == sizeof(id)) return true;
+    Serial.println("Could not persist ANDAM alert ID");
+    return false;
 }
-void heartbeat(){
- uint32_t s=sec.nextSequence(),t=net.epoch(),up=millis()/1000;int r=WiFi.RSSI();if(!s||!t)return;
- String c=String("n05|heartbeat|")+up+"|"+r+"|"+s+"|"+t;
- JsonDocument d;d["node"]="n05";d["uptime_s"]=up;d["rssi_dbm"]=r;d["seq"]=s;d["ts"]=t;d["sig"]=sec.sign(c);
- String out;serializeJson(d,out);mqtt.publish(NodeConfig::HEARTBEAT,out,false);
+
+void onCommand(char* topic, uint8_t* payload, unsigned int size) {
+    if (strcmp(topic, NodeConfig::CMD)) return;
+    JsonDocument data;
+    if (deserializeJson(data, payload, size) || !data["ts"].is<uint32_t>()) return;
+
+    const char* node = data["node"] | "";
+    const char* action = data["action"] | "";
+    const char* signature = data["sig"] | "";
+    const uint32_t timestamp = data["ts"].as<uint32_t>();
+    const uint32_t now = net.epoch();
+    if (strcmp(node, NodeConfig::ID) || !now || !timestamp ||
+        (now > timestamp ? now - timestamp : timestamp - now) > Config::MAX_AGE_S) return;
+
+    const bool isBeep = !strcmp(action, "beep");
+    const bool isSnapshot = !strcmp(action, "rooms");
+    if (!isBeep && !isSnapshot) return;
+    const char* valueKey = isBeep ? "ticket" : "rooms";
+    if (!data[valueKey].is<uint32_t>()) return;
+    const uint32_t value = data[valueKey].as<uint32_t>();
+    if (isSnapshot && value > 3) return;
+    const String canonical = String(NodeConfig::ID) + "|" + action + "|" + value + "|" + timestamp;
+    if (!security.verify(canonical, String(signature))) return;
+
+    if (isBeep) {
+        alerts.accept(value, rememberTicket);
+    } else {
+        rooms = static_cast<uint8_t>(value);
+        haveSnapshot = true;
+        snapshotAt = millis();
+    }
 }
-void setup(){
- Serial.begin(115200);pinMode(NodeConfig::ROOM1,OUTPUT);pinMode(NodeConfig::ROOM2,OUTPUT);pinMode(NodeConfig::GREEN,OUTPUT);pinMode(NodeConfig::BUZZER,OUTPUT);pinMode(NodeConfig::MUTE,INPUT_PULLUP);
- digitalWrite(NodeConfig::ROOM1,LOW);digitalWrite(NodeConfig::ROOM2,LOW);digitalWrite(NodeConfig::GREEN,LOW);digitalWrite(NodeConfig::BUZZER,LOW);
- if(!sec.begin(HMAC_KEY_HEX)||!sec.beginCounters("andam-n05")){Serial.println("SECURITY/FLASH INIT FAILED");return;}
- net.begin(WIFI_SSID,WIFI_PASS);mqtt.begin("n05",NodeConfig::ALERT,callback);beepQueue(1);
+
+void reportCount(uint32_t count, uint32_t now) {
+    JsonDocument data;
+    data["node"] = NodeConfig::ID;
+    data["metric"] = "alert-count";
+    data["unit"] = "count";
+    data["value"] = count;
+    data["uptime"] = now / 1000;
+    String payload;
+    serializeJson(data, payload);
+    if (!mqtt.publish(NodeConfig::COUNT, payload)) Serial.println("Could not publish alert count");
 }
-void loop(){
- net.loop();mqtt.loop(net.connected()&&net.epoch());unsigned long now=millis();
- bool mv=digitalRead(NodeConfig::MUTE);if(mv!=muteLast){muteLast=mv;muteChanged=now;}
- if(now-muteChanged>=Config::DEBOUNCE_MS&&mv!=muteStable){muteStable=mv;if(!mv)muted=true;}
- bool fresh=mqtt.connected()&&net.epoch()&&snapAt&&now-snapAt<=30000;
- if(!fresh){r1=false;r2=false;}
- digitalWrite(NodeConfig::ROOM1,r1?HIGH:LOW);digitalWrite(NodeConfig::ROOM2,r2?HIGH:LOW);
- if(!fresh){if(now-lastBlink>=500){lastBlink=now;greenState=!greenState;digitalWrite(NodeConfig::GREEN,greenState);}}
- else digitalWrite(NodeConfig::GREEN,HIGH);
- if(fresh&&(r1||r2)&&!muted&&lastReminder&&now-lastReminder>=60000){lastReminder=now;beepQueue(3);}
- if(!r1&&!r2)lastReminder=now;
- if(beeps&&now>=nextBeep){buzzState=!buzzState;digitalWrite(NodeConfig::BUZZER,buzzState);nextBeep=now+120;if(!buzzState)--beeps;}
- else if(!beeps&&buzzState){buzzState=false;digitalWrite(NodeConfig::BUZZER,LOW);}
- if(mqtt.connected()&&net.epoch()&&now-lastBeat>=Config::HEARTBEAT_MS){lastBeat=now;heartbeat();}
+
+void silence() {
+    alerts.silence();
+    digitalWrite(NodeConfig::BUZZER, LOW);
+}
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(NodeConfig::ROOM1, OUTPUT);
+    pinMode(NodeConfig::ROOM2, OUTPUT);
+    pinMode(NodeConfig::GREEN, OUTPUT);
+    pinMode(NodeConfig::BUZZER, OUTPUT);
+    pinMode(NodeConfig::MUTE, INPUT_PULLUP);
+    digitalWrite(NodeConfig::ROOM1, LOW);
+    digitalWrite(NodeConfig::ROOM2, LOW);
+    digitalWrite(NodeConfig::GREEN, LOW);
+    digitalWrite(NodeConfig::BUZZER, LOW);
+
+    if (!security.begin(HMAC_KEY_HEX) || !preferences.begin("andam-n05", false)) {
+        Serial.println("ANDAM signing key or flash initialization failed");
+        return;
+    }
+    alerts = DeskAlerts(preferences.getUInt("last-ticket", 0));
+    net.begin(WIFI_SSID, WIFI_PASS);
+    mqtt.begin(NodeConfig::ID, NodeConfig::CMD, onCommand);
+    initialized = true;
+}
+
+void loop() {
+    if (!initialized) return;
+    net.loop();
+    const bool ready = net.connected() && net.epoch();
+    if (!ready || !mqtt.connected()) {
+        haveSnapshot = false;
+        silence();
+    }
+    mqtt.loop(ready);
+    const bool connected = ready && mqtt.connected();
+    const uint32_t now = millis();
+
+    static bool lastMute = HIGH;
+    static bool stableMute = HIGH;
+    static uint32_t muteChangedAt = 0;
+    const bool mute = digitalRead(NodeConfig::MUTE);
+    if (mute != lastMute) {
+        lastMute = mute;
+        muteChangedAt = now;
+    }
+    if (now - muteChangedAt >= Config::DEBOUNCE_MS && mute != stableMute) {
+        stableMute = mute;
+        if (stableMute == LOW) silence();
+    }
+
+    if (!connected) haveSnapshot = false;
+    const bool fresh = connected && haveSnapshot && now - snapshotAt <= SNAPSHOT_TTL_MS;
+    digitalWrite(NodeConfig::ROOM1, fresh && (rooms & 1));
+    digitalWrite(NodeConfig::ROOM2, fresh && (rooms & 2));
+    digitalWrite(NodeConfig::GREEN, fresh || (now / 500) % 2);
+    digitalWrite(NodeConfig::BUZZER, alerts.update(now, connected));
+
+    const uint32_t count = alerts.played();
+    if (!connected) {
+        reportNow = true;
+    } else if (reportNow || count != lastReportedCount || now - lastReportAt >= Config::HEARTBEAT_MS) {
+        reportCount(count, now);
+        lastReportedCount = count;
+        lastReportAt = now;
+        reportNow = false;
+    }
 }

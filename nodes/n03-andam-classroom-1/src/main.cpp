@@ -1,72 +1,172 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #include "secrets.h"
 #include "Config.h"
 #include "NodeConfig.h"
 #include "AndamSecurity.h"
 #include "Network.h"
 #include "MqttBase.h"
-Network net; AndamSecurity sec; MqttBase mqtt;
-enum State:uint8_t{IDLE,WAIT_TICKET,SAVED,ACKED}; State state=IDLE;
-uint32_t req=0,lastCmdSeq=0;unsigned long startAt=0,lastSend=0,lastBeat=0,lastBlink=0;
-bool helpLast=HIGH,helpStable=HIGH,resLast=HIGH,resStable=HIGH,redOn=false;
-unsigned long helpChanged=0,resChanged=0;bool errorMode=false;uint8_t errorSteps=0;
-String signDoc(const String&canonical,JsonDocument&d){String s=sec.sign(canonical);if(!s.length())return "";d["sig"]=s;String out;serializeJson(d,out);return out;}
-bool publishEvent(const char*ev){
- uint32_t seq=sec.nextSequence(),ts=net.epoch();if(!seq||!ts||!req)return false;
- String c=String("n03|")+ev+"|"+req+"|"+seq+"|"+ts;
- JsonDocument d;d["node"]="n03";d["event"]=ev;d["req"]=req;d["seq"]=seq;d["ts"]=ts;
- String out=signDoc(c,d);String topic=!strcmp(ev,"help_request")?NodeConfig::REQUEST:NodeConfig::RESOLVE_TOPIC;
- return out.length()&&mqtt.publish(topic,out,false);
+#include "RequestState.h"
+
+constexpr unsigned long RETRY_MS = 5000;
+constexpr unsigned long CONFIRMATION_MS = 1000;
+Network net;
+AndamSecurity security;
+MqttBase mqtt;
+Preferences requests;
+RequestState request;
+uint32_t helpCount = 0;
+unsigned long lastSend = 0;
+unsigned long confirmedAt = 0;
+bool showConfirmation = false;
+bool reportNow = true;
+bool initialized = false;
+
+bool saveRequest(const RequestState& next, uint32_t count) {
+    // Keep the last count in the upper bits even when the room is idle.
+    const uint64_t stored = next.storedValue(count);
+    if (requests.putULong64("request-state", stored) != sizeof(stored)) {
+        Serial.println("Could not persist ANDAM request");
+        return false;
+    }
+    request = next;
+    helpCount = count;
+    return true;
 }
-void fail(){errorMode=true;errorSteps=0;redOn=false;lastBlink=millis();}
-void help(){
- if(state!=IDLE)return;if(!mqtt.connected()||!net.epoch()){fail();return;}
- req=sec.nextRequest();if(!req){fail();return;}state=WAIT_TICKET;startAt=lastSend=millis();
- if(!publishEvent("help_request")){state=IDLE;req=0;fail();}
+
+bool publishCount(const char* event) {
+    const uint32_t timestamp = net.epoch();
+    const uint32_t uptime = millis() / 1000;
+    if (!timestamp) return false;
+
+    const String canonical = String(NodeConfig::ID) + "|" + event + "|" + helpCount +
+                             "|" + uptime + "|" + timestamp;
+    const String signature = security.sign(canonical);
+    if (!signature.length()) return false;
+
+    JsonDocument data;
+    data["node"] = NodeConfig::ID;
+    data["metric"] = "help-request-count";
+    data["unit"] = "count";
+    data["event"] = event;
+    data["value"] = helpCount;
+    data["uptime"] = uptime;
+    data["ts"] = timestamp;
+    data["sig"] = signature;
+    String payload;
+    serializeJson(data, payload);
+    return mqtt.publish(NodeConfig::COUNT, payload);
 }
-void resolve(){
- if(state==IDLE)return;if(!mqtt.connected()||!net.epoch()){fail();return;}
- const char*ev=(state==SAVED||state==ACKED)?"resolved":"cancelled";
- if(publishEvent(ev)){state=IDLE;req=0;digitalWrite(NodeConfig::RED,LOW);digitalWrite(NodeConfig::GREEN,LOW);}else fail();
+
+void onHelp() {
+    if (helpCount == UINT32_MAX) return;
+    RequestState next = request;
+    if (next.start(helpCount + 1) && saveRequest(next, helpCount + 1)) reportNow = true;
 }
-void callback(char*,uint8_t*p,unsigned int n){
- JsonDocument d;if(deserializeJson(d,p,n))return;
- const char*node=d["node"]|"";const char*st=d["state"]|"";const char*sig=d["sig"]|"";
- uint32_t r=d["req"]|0U,s=d["seq"]|0U,t=d["ts"]|0U,now=net.epoch();
- if(strcmp(node,"n03")||!r||r!=req||!s||s<=lastCmdSeq||!t||!now)return;
- if((now>t?now-t:t-now)>Config::MAX_AGE_S)return;
- String c=String("n03|")+st+"|"+r+"|"+s+"|"+t;if(!sec.verify(c,String(sig)))return;
- if(!strcmp(st,"ticket_saved")&&state==WAIT_TICKET){state=SAVED;lastCmdSeq=s;}
- else if(!strcmp(st,"acknowledged")&&(state==SAVED||state==WAIT_TICKET)){state=ACKED;lastCmdSeq=s;}
+
+void onResolve() {
+    RequestState next = request;
+    if (next.requestResolution() && saveRequest(next, helpCount)) reportNow = true;
 }
-void heartbeat(){
- uint32_t s=sec.nextSequence(),t=net.epoch(),up=millis()/1000;int rssi=WiFi.RSSI();if(!s||!t)return;
- String c=String("n03|heartbeat|")+up+"|"+rssi+"|"+s+"|"+t;
- JsonDocument d;d["node"]="n03";d["uptime_s"]=up;d["rssi_dbm"]=rssi;d["seq"]=s;d["ts"]=t;d["sig"]=sec.sign(c);
- String out;serializeJson(d,out);mqtt.publish(NodeConfig::HEARTBEAT,out,false);
+
+void onCommand(char* topic, uint8_t* payload, unsigned int size) {
+    if (strcmp(topic, NodeConfig::CMD)) return;
+    JsonDocument data;
+    if (deserializeJson(data, payload, size)) return;
+
+    const char* node = data["node"] | "";
+    const char* action = data["action"] | "";
+    const char* signature = data["sig"] | "";
+    if (!data["req"].is<uint32_t>() || !data["ts"].is<uint32_t>()) return;
+    const uint32_t id = data["req"].as<uint32_t>();
+    const uint32_t timestamp = data["ts"].as<uint32_t>();
+    const uint32_t now = net.epoch();
+    if (strcmp(node, NodeConfig::ID) || !now || !timestamp ||
+        (now > timestamp ? now - timestamp : timestamp - now) > Config::MAX_AGE_S) return;
+
+    RequestState next = request;
+    if (!next.confirm(id, action)) return;
+    const String canonical = String(NodeConfig::ID) + "|" + action + "|" + id + "|" + timestamp;
+    if (security.verify(canonical, String(signature)) && saveRequest(next, helpCount)) {
+        Serial.printf("ANDAM request %lu: %s\n", (unsigned long)id, action);
+        showConfirmation = next.phase() == RequestPhase::Saved;
+        confirmedAt = millis();
+        reportNow = true;
+    }
 }
-void button(uint8_t pin,bool&last,bool&stable,unsigned long&changed,void(*fn)()){
- bool v=digitalRead(pin);unsigned long now=millis();if(v!=last){last=v;changed=now;}
- if(now-changed>=Config::DEBOUNCE_MS&&v!=stable){stable=v;if(!stable)fn();}
+
+struct Button {
+    uint8_t pin;
+    bool last;
+    bool stable;
+    unsigned long changedAt;
+
+    void check(unsigned long now, void (*pressed)()) {
+        const bool level = digitalRead(pin);
+        if (level != last) {
+            last = level;
+            changedAt = now;
+        }
+        if (now - changedAt >= Config::DEBOUNCE_MS && level != stable) {
+            stable = level;
+            if (level == LOW) pressed();
+        }
+    }
+};
+
+Button help{NodeConfig::HELP, HIGH, HIGH, 0};
+Button resolve{NodeConfig::RESOLVE, HIGH, HIGH, 0};
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(NodeConfig::HELP, INPUT_PULLUP);
+    pinMode(NodeConfig::RESOLVE, INPUT_PULLUP);
+    pinMode(NodeConfig::RED, OUTPUT);
+    pinMode(NodeConfig::GREEN, OUTPUT);
+    digitalWrite(NodeConfig::RED, LOW);
+    digitalWrite(NodeConfig::GREEN, LOW);
+
+    if (!security.begin(HMAC_KEY_HEX) || !requests.begin("andam-req", false)) {
+        Serial.println("ANDAM signing key or flash initialization failed");
+        return;
+    }
+
+    // Start from the V3 request counter if this board is upgraded in place.
+    const uint64_t stored = requests.getULong64("request-state", 0);
+    request = RequestState::restore(stored);
+    helpCount = stored ? static_cast<uint32_t>(stored >> 8) : requests.getUInt("req", 0);
+    net.begin(WIFI_SSID, WIFI_PASS);
+    mqtt.begin(NodeConfig::ID, NodeConfig::CMD, onCommand);
+    initialized = true;
 }
-void setup(){
- Serial.begin(115200);pinMode(NodeConfig::HELP,INPUT_PULLUP);pinMode(NodeConfig::RESOLVE,INPUT_PULLUP);
- pinMode(NodeConfig::RED,OUTPUT);pinMode(NodeConfig::GREEN,OUTPUT);digitalWrite(NodeConfig::RED,LOW);digitalWrite(NodeConfig::GREEN,LOW);
- if(!sec.begin(HMAC_KEY_HEX)||!sec.beginCounters("andam-n03")||!sec.beginRequestCounter()){Serial.println("SECURITY/FLASH INIT FAILED");return;}
- net.begin(WIFI_SSID,WIFI_PASS);mqtt.begin("n03",NodeConfig::CMD,callback);
-}
-void loop(){
- net.loop();mqtt.loop(net.connected()&&net.epoch());button(NodeConfig::HELP,helpLast,helpStable,helpChanged,help);button(NodeConfig::RESOLVE,resLast,resStable,resChanged,resolve);
- unsigned long now=millis();
- if(state==WAIT_TICKET){
-  if(now-lastSend>=5000){lastSend=now;if(!publishEvent("help_request"))Serial.println("Request retry failed");}
-  if(now-startAt>=15000){state=IDLE;req=0;fail();}
-  if(now-lastBlink>=200){lastBlink=now;redOn=!redOn;digitalWrite(NodeConfig::RED,redOn);digitalWrite(NodeConfig::GREEN,LOW);}
- }
- if(errorMode&&now-lastBlink>=100){lastBlink=now;redOn=!redOn;digitalWrite(NodeConfig::RED,redOn);if(++errorSteps>=6){errorMode=false;digitalWrite(NodeConfig::RED,LOW);}}
- if(state==SAVED){digitalWrite(NodeConfig::RED,HIGH);digitalWrite(NodeConfig::GREEN,LOW);}
- if(state==ACKED){digitalWrite(NodeConfig::RED,LOW);digitalWrite(NodeConfig::GREEN,HIGH);}
- if(state==IDLE&&!errorMode){digitalWrite(NodeConfig::RED,LOW);digitalWrite(NodeConfig::GREEN,LOW);}
- if(mqtt.connected()&&net.epoch()&&now-lastBeat>=Config::HEARTBEAT_MS){lastBeat=now;heartbeat();}
+
+void loop() {
+    if (!initialized) return;
+    net.loop();
+    const bool ready = net.connected() && net.epoch();
+    mqtt.loop(ready);
+    const bool connected = ready && mqtt.connected();
+    const unsigned long now = millis();
+    help.check(now, onHelp);
+    resolve.check(now, onResolve);
+
+    const auto phase = request.phase();
+    const bool waitingToSave = phase == RequestPhase::WaitingForSave;
+    const bool waitingToResolve = phase == RequestPhase::WaitingForResolution;
+    const bool waiting = waitingToSave || waitingToResolve;
+    if (!connected) {
+        reportNow = true;
+    } else if (reportNow || now - lastSend >= (waiting ? RETRY_MS : Config::HEARTBEAT_MS)) {
+        const char* event = waitingToSave ? "help_request" : waitingToResolve ? "resolve" : "heartbeat";
+        if (!publishCount(event)) Serial.println("Could not publish ANDAM count");
+        lastSend = now;
+        reportNow = false;
+    }
+
+    // A resolution in flight still shows an open ticket until the backend confirms it.
+    digitalWrite(NodeConfig::RED, connected &&
+        (phase == RequestPhase::Saved || waitingToResolve || (waitingToSave && (now / 200) % 2)));
+    if (now - confirmedAt >= CONFIRMATION_MS) showConfirmation = false;
+    digitalWrite(NodeConfig::GREEN, connected && phase == RequestPhase::Saved && showConfirmation);
 }

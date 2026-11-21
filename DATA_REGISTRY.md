@@ -17,8 +17,8 @@ HAYAG, ANDAM, and KAHIMTANG can fill in their rows and start bench-testing in pa
 | [n01](nodes/n01-hayag-climate/) | Pending | HC-SR501 | Recent motion | HAYAG classroom, actual room ID pending | Show whether movement was detected recently. | `bca188/blocka/hayag/n01/recent-motion` | bool | On change and at least every 60 s while valid |
 | [n02](nodes/n02-hayag-lighting/) | Pending | BH1750 | Illuminance at the window-side reference point | HAYAG classroom, actual room ID pending | Track ambient light at the window-side measurement point. | `bca188/blocka/hayag/n02/window-lux` | lx | On change and at least every 60 s while valid |
 | [n02](nodes/n02-hayag-lighting/) | Pending | BH1750 | Illuminance at the desk surface | HAYAG classroom, actual room ID pending | Track light where people work. | `bca188/blocka/hayag/n02/desk-lux` | lx | On change and at least every 60 s while valid |
-| [n03](nodes/n03-andam-classroom-1/) | Pending | Help button | Classroom 1 help requests | First ANDAM classroom, actual room ID pending | Create a ticket when the room’s count increases. | `bca188/blocka/andam/n03/help-request-count` | count | On change and at least every 60 s while valid |
-| [n04](nodes/n04-andam-classroom-2/) | Pending | Help button | Classroom 2 help requests | Second ANDAM classroom, actual room ID pending | Create a ticket when the room’s count increases. | `bca188/blocka/andam/n04/help-request-count` | count | On change and at least every 60 s while valid |
+| [n03](nodes/n03-andam-classroom-1/) | Pending | Help button | ICT3D help requests | ICT3D | Create one ticket for each new signed help request. | `bca188/blocka/andam/n03/help-request-count` | count | On change and at least every 60 s while valid |
+| [n04](nodes/n04-andam-classroom-2/) | Pending | Help button | Classroom 2 help requests | Second ANDAM classroom, actual room ID pending | Create one ticket for each new signed help request. | `bca188/blocka/andam/n04/help-request-count` | count | On change and at least every 60 s while valid |
 | [n05](nodes/n05-andam-technician-desk/) | Pending | Buzzer receiver | Audible alerts played | Technician desk, actual location pending | Check that the desk receiver responded to new saved tickets. | `bca188/blocka/andam/n05/alert-count` | count | On change and at least every 60 s while valid |
 | [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 1 occupancy state | Bay 1, actual campus label pending | Show whether Bay 1 is available. | `bca188/blocka/kahimtang/n06/bay-1-occupied` | bool | On change and at least every 60 s while valid |
 | [n06](nodes/n06-kahimtang-parking/) | Pending | HC-SR04 | Bay 2 occupancy state | Bay 2, actual campus label pending | Show whether Bay 2 is available. | `bca188/blocka/kahimtang/n06/bay-2-occupied` | bool | On change and at least every 60 s while valid |
@@ -30,7 +30,7 @@ HAYAG, ANDAM, and KAHIMTANG can fill in their rows and start bench-testing in pa
 - Send a valid reading when it changes enough to matter. If it stays steady, send a heartbeat at least once per minute. Target 45 seconds in firmware to leave time for scheduling.
 - Use `0` for false and `1` for true on `bool` topics. A missing or stale parking reading should display **Unknown**.
 - Record valid sensor ranges and thresholds after testing the actual mounting spots. Reject invalid values and keep the last valid reading timestamp.
-- Repeated reports of an unchanged help-request count must keep the same ticket count. The ANDAM team needs to test counter persistence across restart and reconnection.
+- Repeated reports of the same help request keep the same ticket. The ANDAM team needs to test counter persistence across restart and reconnection.
 
 Example temperature message for `bca188/blocka/hayag/n01/temperature`.
 
@@ -38,12 +38,25 @@ Example temperature message for `bca188/blocka/hayag/n01/temperature`.
 {"node":"n01","metric":"temperature","value":27.4,"unit":"C","uptime":52}
 ```
 
-## Proposed actuator commands
+## ANDAM commands
 
-| Topic | Allowed action |
+The backend sends signed, non-retained JSON commands after saving the change. Restrict command publishing to the service account. The receiving node verifies the target, timestamp and signature.
+
+| Topic | Allowed actions |
 | --- | --- |
-| `bca188/blocka/andam/n03/cmd` | `received` to light the Classroom 1 feedback LED briefly after its ticket is saved |
-| `bca188/blocka/andam/n04/cmd` | `received` to light the Classroom 2 feedback LED briefly after its ticket is saved |
-| `bca188/blocka/andam/n05/cmd` | `beep` to play one short alert for a newly saved ticket |
+| `bca188/blocka/andam/n03/cmd` | `received` confirms a saved ICT3D request. `resolved` confirms that the ticket closed. |
+| `bca188/blocka/andam/n04/cmd` | The same actions when the second classroom joins the pilot. |
+| `bca188/blocka/andam/n05/cmd` | `beep` alerts the desk once for a new ticket. `rooms` refreshes the room LEDs. |
 
-The final command contract needs an agreed way to identify each ticket and suppress duplicate alerts. Keep commands non-retained, restrict command publishing to the approved service, and default outputs to off on boot and connection loss.
+### ANDAM message formats
+
+| Message | JSON fields | Fields joined with a pipe for HMAC-SHA256 |
+| --- | --- | --- |
+| Classroom count | `node`, `metric` (`help-request-count`), `unit` (`count`), `event`, `value`, `uptime`, `ts`, `sig` | `node\|event\|value\|uptime\|ts` |
+| Classroom reply | `node`, `action` (`received` or `resolved`), `req`, `ts`, `sig` | `node\|action\|req\|ts` |
+| Desk alert | `node` (`n05`), `action` (`beep`), `ticket`, `ts`, `sig` | `node\|action\|ticket\|ts` |
+| Desk room update | `node` (`n05`), `action` (`rooms`), `rooms`, `ts`, `sig` | `node\|action\|rooms\|ts` |
+
+Use the receiving or sending node's own key and encode `sig` as lowercase hexadecimal. `ts` is Unix time in seconds. `uptime` is seconds since boot. The classroom count stays in flash. The first `help_request` for a node and count saves a ticket. `resolve` reuses that count to close the ticket. `heartbeat` reports the count. A retried request receives the same outcome without creating another ticket.
+
+A desk alert uses the backend's persistent ticket ID. For `rooms`, `0` means no rooms, `1` means ICT3D, `2` means `n04`, and `3` means both. Room updates never sound the buzzer. The desk's `alert-count` is the number of pulses started since boot.

@@ -16,3 +16,13 @@ Each subsystem team can test its stations in parallel. For each station, start i
 | T10 | Sensor fault | Simulate a disconnected sensor with the power off during wiring changes. | The node reports the fault. Missing or expired readings appear as Unknown or stale. | Pending |
 | T11 | Remote view | Trigger a change at school and observe the dashboard from mobile data after cloud setup. | The authorized view updates. Record the actual delay. | Pending |
 | T12 | Access controls | Try viewing and changing protected information with each approved account type. | Parking and ticket actions follow their assigned permissions. | Pending |
+
+## ANDAM bench test
+
+1. Start the [ANDAM service](backend/README.md), then connect ICT3D and the desk. In MQTTX subscribe to the registered ICT3D count topic with the monitor account.
+2. Press HELP once. Look for `event: help_request` on the count topic, followed by one green flash at ICT3D, a steady red room LED and one short desk beep.
+3. Power-cycle the desk while that ticket is open. The desk room LED should return without any beep.
+4. Temporarily stop the service and press RESOLVE. The classroom red LED should stay on. Restart the service and confirm the classroom and desk room indicators clear when the resolution is saved.
+5. Record the MQTTX observation, Serial Monitor messages and physical LED and buzzer results separately. Leave T03 pending until the physical run.
+
+Automated coverage exercises ticket retries and resolution in SQLite and tests buzzer timing and reconnect behavior with a host C++ compiler. A local MQTT run with simulated nodes passed the request, retry, reconnect and resolution sequence. T03 still needs the campus hardware run.
