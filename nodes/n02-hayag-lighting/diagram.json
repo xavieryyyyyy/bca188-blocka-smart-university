@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "author": "HAYAG Node 2",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "chip-bh1750-window",
+      "id": "window",
+      "top": 20,
+      "left": 300,
+      "attrs": {
+        "lux": "500"
+      }
+    },
+    {
+      "type": "chip-bh1750-desk",
+      "id": "desk",
+      "top": 170,
+      "left": 300,
+      "attrs": {
+        "lux": "250"
+      }
+    }
+  ],
+  "connections": [
+    ["esp:3V3", "window:VCC", "red"],
+    ["esp:GND.1", "window:GND", "black"],
+    ["esp:22", "window:SCL", "green"],
+    ["esp:21", "window:SDA", "blue"],
+    ["esp:3V3", "desk:VCC", "red"],
+    ["esp:GND.1", "desk:GND", "black"],
+    ["esp:22", "desk:SCL", "green"],
+    ["esp:21", "desk:SDA", "blue"]
+  ]
+}

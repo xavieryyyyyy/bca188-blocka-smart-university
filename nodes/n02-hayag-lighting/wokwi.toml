@@ -1,0 +1,12 @@
+[wokwi]
+version = 1
+firmware = ".pio/build/esp32dev/firmware.bin"
+elf = ".pio/build/esp32dev/firmware.elf"
+
+[[chip]]
+name = "bh1750-window"
+binary = "chips/bh1750-window.chip.wasm"
+
+[[chip]]
+name = "bh1750-desk"
+binary = "chips/bh1750-desk.chip.wasm"
